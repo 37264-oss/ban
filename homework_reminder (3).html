@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Homework Reminder</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,"Noto Sans Thai",sans-serif;background:#f3f7ff;color:#263238}
+.container{max-width:1000px;margin:auto;padding:24px}
+header{background:linear-gradient(135deg,#4f7cff,#7b61ff);color:white;border-radius:24px;padding:28px;box-shadow:0 10px 30px #0001}
+header h1{margin:0 0 8px;font-size:32px}
+header p{margin:0;opacity:.9}
+.grid{display:grid;grid-template-columns:1fr 1.5fr;gap:20px;margin-top:20px}
+.card{background:white;border-radius:20px;padding:22px;box-shadow:0 8px 25px #0000000d}
+h2{margin-top:0}
+label{display:block;margin:12px 0 6px;font-weight:bold}
+input,textarea,select{width:100%;padding:12px;border:1px solid #dce3f0;border-radius:12px;font-size:15px}
+textarea{resize:vertical;min-height:90px}
+button{border:0;border-radius:12px;padding:11px 16px;font-weight:bold;cursor:pointer}
+.primary{background:#4f7cff;color:white;width:100%;margin-top:15px}
+.filters{display:flex;gap:8px;margin-bottom:15px;flex-wrap:wrap}
+.filters button{background:#edf2ff;color:#40527a}
+.filters button.active{background:#4f7cff;color:white}
+.task{border:1px solid #e7ebf3;border-radius:16px;padding:16px;margin-bottom:12px}
+.task.done{opacity:.65;background:#f7f9fc}
+.task-top{display:flex;justify-content:space-between;gap:10px}
+.subject{font-weight:bold;color:#4f7cff}
+.badge{font-size:12px;padding:5px 9px;border-radius:20px;background:#fff1c7;color:#946b00}
+.badge.done{background:#dff7e8;color:#24734a}
+.detail{margin:9px 0;color:#596579}
+.actions{display:flex;gap:8px;margin-top:12px}
+.actions button{font-size:13px}
+.complete{background:#dff7e8;color:#24734a}
+.delete{background:#ffe4e4;color:#b42323}
+.empty{text-align:center;color:#8993a4;padding:35px 10px}
+.stats{display:flex;gap:10px;margin-top:16px}
+.stat{background:#ffffff22;padding:10px 14px;border-radius:14px}
+.stat b{display:block;font-size:20px}
+@media(max-width:750px){.grid{grid-template-columns:1fr}.container{padding:14px}header h1{font-size:26px}}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+  <h1>📚 Homework Reminder</h1>
+  <p>เว็บช่วยจัดการและเตือนการบ้านของนักเรียน</p>
+  <div class="stats">
+    <div class="stat"><b id="total">0</b>งานทั้งหมด</div>
+    <div class="stat"><b id="pending">0</b>ยังไม่เสร็จ</div>
+    <div class="stat"><b id="completed">0</b>เสร็จแล้ว</div>
+  </div>
+</header>
+
+<div class="grid">
+<section class="card">
+  <h2>➕ เพิ่มการบ้าน</h2>
+  <form id="form">
+    <label>วิชา</label>
+    <input id="subject" required placeholder="เช่น คณิตศาสตร์">
+    <label>รายละเอียด</label>
+    <textarea id="detail" required placeholder="เช่น ทำแบบฝึกหัดหน้า 25-27"></textarea>
+    <label>วันส่ง</label>
+    <input id="date" type="date" required>
+    <label>เวลาเตือน</label>
+    <input id="time" type="time" value="18:00" required>
+    <button class="primary">บันทึกการบ้าน</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>📋 รายการการบ้าน</h2>
+  <div class="filters">
+    <button class="active" data-filter="all">ทั้งหมด</button>
+    <button data-filter="pending">ยังไม่เสร็จ</button>
+    <button data-filter="done">เสร็จแล้ว</button>
+  </div>
+  <div id="tasks"></div>
+</section>
+</div>
+</div>
+
+<script>
+const KEY="homework_reminder_v1";
+let tasks=JSON.parse(localStorage.getItem(KEY)||"[]");
+let filter="all";
+
+const form=document.getElementById("form");
+const tasksEl=document.getElementById("tasks");
+
+form.addEventListener("submit",e=>{
+  e.preventDefault();
+  tasks.push({
+    id:Date.now(),
+    subject:document.getElementById("subject").value.trim(),
+    detail:document.getElementById("detail").value.trim(),
+    date:document.getElementById("date").value,
+    time:document.getElementById("time").value,
+    done:false
+  });
+  save(); form.reset(); document.getElementById("time").value="18:00";
+  render();
+});
+
+document.querySelectorAll(".filters button").forEach(btn=>{
+  btn.onclick=()=>{
+    filter=btn.dataset.filter;
+    document.querySelectorAll(".filters button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active"); render();
+  };
+});
+
+function save(){localStorage.setItem(KEY,JSON.stringify(tasks));}
+
+function formatDate(s){
+  if(!s)return "";
+  return new Date(s+"T00:00:00").toLocaleDateString("th-TH",{day:"numeric",month:"long",year:"numeric"});
+}
+
+function render(){
+  const shown=tasks.filter(t=>filter==="all"||(filter==="done"?t.done:!t.done))
+    .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  tasksEl.innerHTML=shown.length?shown.map(t=>`
+    <div class="task ${t.done?"done":""}">
+      <div class="task-top">
+        <div class="subject">📘 ${escapeHtml(t.subject)}</div>
+        <span class="badge ${t.done?"done":""}">${t.done?"เสร็จแล้ว":"รอทำ"}</span>
+      </div>
+      <div class="detail">${escapeHtml(t.detail)}</div>
+      <div>📅 ${formatDate(t.date)} &nbsp; ⏰ ${t.time} น.</div>
+      <div class="actions">
+        <button class="complete" onclick="toggleTask(${t.id})">${t.done?"↩ ทำอีกครั้ง":"✓ ทำเสร็จแล้ว"}</button>
+        <button class="delete" onclick="deleteTask(${t.id})">🗑 ลบ</button>
+      </div>
+    </div>`).join(""):`<div class="empty">ยังไม่มีการบ้านในรายการ 🎉</div>`;
+
+  document.getElementById("total").textContent=tasks.length;
+  document.getElementById("pending").textContent=tasks.filter(t=>!t.done).length;
+  document.getElementById("completed").textContent=tasks.filter(t=>t.done).length;
+}
+
+function toggleTask(id){
+  const t=tasks.find(x=>x.id===id); if(t)t.done=!t.done;
+  save(); render();
+}
+function deleteTask(id){
+  if(confirm("ต้องการลบการบ้านรายการนี้หรือไม่?")){
+    tasks=tasks.filter(t=>t.id!==id); save(); render();
+  }
+}
+function escapeHtml(text){
+  return text.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+render();
+</script>
+</body>
+</html>
